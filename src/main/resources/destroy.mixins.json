@@ -25,6 +25,7 @@
         "compat.create.FluidTankMountedStorageHandlerMixin",
         "compat.create.GenericItemFillingMixin",
         "compat.create.SequencedAssemblyRecipeMixin",
+        "compat.atmospherics.MixingFluidTankMixin",
         "compat.ponder.StitchedSpriteMixin",
         "compat.create_connected.FluidVesselBlockEntityMixin",
         "compat.create_connected.FluidVesselMountedStorageHandlerMixin",

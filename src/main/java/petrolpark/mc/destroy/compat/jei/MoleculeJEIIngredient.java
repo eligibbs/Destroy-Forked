@@ -19,21 +19,19 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.Style;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
 import net.minecraft.world.item.TooltipFlag;
 
 import petrolpark.mc.destroy.Destroy;
 import petrolpark.mc.destroy.chemistry.legacy.LegacySpecies;
 import petrolpark.mc.destroy.chemistry.legacy.LegacySpeciesTag;
-import petrolpark.mc.destroy.chemistry.legacy.index.DestroyMolecules;
 import petrolpark.mc.destroy.compat.jei.render.MoleculeBatchRenderer;
 import petrolpark.mc.destroy.config.DestroyAllConfigs;
+import petrolpark.mc.destroy.core.chemistry.MoleculeCheatItems;
 import petrolpark.mc.destroy.core.chemistry.MoleculeDisplayItem;
 import petrolpark.mc.destroy.core.chemistry.MoleculeDisplayItem.MoleculeTooltip;
 import petrolpark.mc.destroy.core.chemistry.MoleculeRenderer;
@@ -44,12 +42,6 @@ import petrolpark.mc.destroy.core.chemistry.MoleculeRenderer;
  * {@code builder.addIngredient(MoleculeJEIIngredient.TYPE, species)}.
 */
 public class MoleculeJEIIngredient {
-
-    private static final ItemStack illegalFish;
-    static {
-        illegalFish = new ItemStack(Items.COD);
-        illegalFish.set(DataComponents.CUSTOM_NAME, Component.literal("Impossible Fish"));
-    }
 
     public static final IIngredientType<LegacySpecies> TYPE = new IIngredientType<LegacySpecies>() {
         @Override
@@ -116,30 +108,7 @@ public class MoleculeJEIIngredient {
 
         @Override
         public ItemStack getCheatItemStack(LegacySpecies ingredient) {
-            // Hypothetical/PROTON species return illegalFish
-            // (they can't be physically contained). All other species return a TEST_TUBE pre-filled
-            // with a phase-appropriate mixture of that species.
-            // Collapsing both branches into {@code LegacyMixture.pure(ingredient)} (which uses
-            // {@link LegacySpecies#getPureConcentration()} = density / mass) is wrong: for molecules
-            // with density set as their LIQUID density (most molecules), this yields ~28.8 mol/L for
-            // N2 — but N2 at room temp/pressure is a GAS at ~0.042 mol/L (symptom: a cheat-mode test
-            // tube of a gas had the same molar density as a liquid one). So the branch is kept:
-            // - boiling > 273K (liquid at RTP) → pure() with liquid density
-            // - boiling ≤ 273K (gas at RTP) → AIR_MOLAR_DENSITY constant (~0.042 mol/L)
-            // using {@link DestroyFluids#AIR_MOLAR_DENSITY}.
-            if (ingredient.isHypothetical() || ingredient == DestroyMolecules.PROTON) return illegalFish;
-            petrolpark.mc.destroy.chemistry.legacy.LegacyMixture mixture;
-            if (ingredient.getBoilingPoint() > 273f) {
-                // Liquid at room temp/pressure — use liquid molar density.
-                mixture = petrolpark.mc.destroy.chemistry.legacy.LegacyMixture.pure(ingredient);
-            } else {
-                // Gas at RTP — use ideal-gas molar density (= 1 atm @ 298K = AIR_MOLAR_DENSITY).
-                mixture = new petrolpark.mc.destroy.chemistry.legacy.LegacyMixture();
-                mixture.addMolecule(ingredient,
-                    (float) petrolpark.mc.destroy.DestroyFluids.AIR_MOLAR_DENSITY);
-            }
-            return petrolpark.mc.destroy.core.chemistry.storage.testtube.TestTubeItem.of(
-                petrolpark.mc.destroy.DestroyItems.TEST_TUBE.asStack(), mixture);
+            return MoleculeCheatItems.of(ingredient);
         }
     };
 

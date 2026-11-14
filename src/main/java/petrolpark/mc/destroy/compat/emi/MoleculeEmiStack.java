@@ -18,10 +18,12 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.Style;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.FormattedCharSequence;
+import net.minecraft.world.item.ItemStack;
 
 import petrolpark.mc.destroy.Destroy;
 import petrolpark.mc.destroy.chemistry.legacy.LegacySpecies;
 import petrolpark.mc.destroy.config.DestroyAllConfigs;
+import petrolpark.mc.destroy.core.chemistry.MoleculeCheatItems;
 import petrolpark.mc.destroy.core.chemistry.MoleculeDisplayItem;
 import petrolpark.mc.destroy.core.chemistry.MoleculeRenderer;
 
@@ -65,6 +67,11 @@ public class MoleculeEmiStack extends EmiStack {
 
     public LegacySpecies getMolecule() {
         return molecule;
+    }
+
+    @Override
+    public ItemStack getItemStack() {
+        return molecule == null ? ItemStack.EMPTY : MoleculeCheatItems.of(molecule);
     }
 
     @Override

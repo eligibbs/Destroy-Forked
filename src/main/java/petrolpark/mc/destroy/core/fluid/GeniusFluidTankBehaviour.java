@@ -26,6 +26,51 @@ import petrolpark.mc.destroy.chemistry.minecraft.MixtureFluid;
 */
 public class GeniusFluidTankBehaviour extends SmartFluidTankBehaviour {
 
+    public static int tryMergeMixture(SmartFluidTank tank, FluidStack resource, IFluidHandler.FluidAction action) {
+        FluidStack fluid = tank.getFluid();
+        if (tank.getSpace() <= 0 || !tank.isFluidValid(resource)) return 0;
+        if (!DestroyFluids.isMixture(resource) || !DestroyFluids.isMixture(fluid)) return 0;
+        if (!resource.has(DestroyDataComponents.MIXTURE) || !fluid.has(DestroyDataComponents.MIXTURE)) return 0;
+
+        int amountOfMixtureAdded = Math.min(tank.getSpace(), resource.getAmount());
+        int existingAmount = fluid.getAmount();
+        if (action.simulate()) return amountOfMixtureAdded;
+
+        // lite parse/mix variants skip refreshPossibleReactions /
+        // updateName / updateColor / updateNextBoilingPoints. Those caches don't survive
+        // NBT round-trip and the merged mixture is immediately re-serialized below
+        // (LegacyMixture.writeNBT only emits contents/temperature/equilibrium/results).
+        LegacyMixture existingMixture = LegacyMixture.readNBT(
+            fluid.getOrDefault(DestroyDataComponents.MIXTURE, new CompoundTag()), false);
+        LegacyMixture addedMixture = LegacyMixture.readNBT(
+            resource.getOrDefault(DestroyDataComponents.MIXTURE, new CompoundTag()), false);
+
+        ReadOnlyMixture newMixture = LegacyMixture.mix(Map.of(
+            existingMixture, (double) existingAmount / 1000d,
+            addedMixture, (double) amountOfMixtureAdded / 1000d), false);
+
+        // Use {@code setFluid(MixtureFluid.of(...))} (instance replacement) rather than
+        // mutating the existing FluidStack in place. Mutating in place to avoid FluidStack
+        // instance churn (so pipe state machines see "stable" fluid identity) breaks
+        // pump→pipe transfer entirely (symptom: a pump connected to a fluid pipe fails to
+        // push fluid into the pipe).
+        // <p>Why setFluid is correct: vanilla Create FluidStacks are ephemeral value-type
+        // wrappers — pipe state machines snapshot fluid identity via {@code drain(1, SIMULATE)}
+        // (which always returns a new instance), so they don't actually rely on instance
+        // stability of the tank's internal {@code fluid} field. By contrast, mutating a
+        // FluidStack's components in-place via {@code fluid.set(...)} can leak through
+        // shared {@code DataComponentPatch} references (drain copies the patch reference,
+        // not a deep clone) — downstream pipe state machines holding old drained stacks
+        // can see their "snapshot" components mutate retroactively, producing
+        // hard-to-diagnose flow-identity mismatches that propagate through pipe segments.
+        // <p>The original "A→B→C stall" is now handled by the broader
+        // FluidTransportBehaviourMixin, which relaxes {@code FluidStack.isSameFluidSameComponents}
+        // for mixture pairs across all three pipe-network call sites. With that in
+        // place, instance-replacement no longer triggers the stall.
+        tank.setFluid(MixtureFluid.of(existingAmount + amountOfMixtureAdded, newMixture));
+        return amountOfMixtureAdded;
+    }
+
     /**
  * Mostly copied from Create's {@link SmartFluidTankBehaviour}, swapping
  * {@link SmartFluidTank} for {@link GeniusFluidTank}, which allows Mixtures to be added even
@@ -83,46 +128,7 @@ public class GeniusFluidTankBehaviour extends SmartFluidTankBehaviour {
             if (filled == 0 && getSpace() > 0) {
                 // Differing NBT blocked the insert — try Mixture-aware merge if both sides are
                 // Mixture fluids carrying MIXTURE DataComponents.
-                if (!DestroyFluids.isMixture(resource) || !DestroyFluids.isMixture(fluid)) return 0;
-                if (!resource.has(DestroyDataComponents.MIXTURE) || !fluid.has(DestroyDataComponents.MIXTURE)) return 0;
-
-                int amountOfMixtureAdded = Math.min(getSpace(), resource.getAmount());
-                int existingAmount = fluid.getAmount();
-                if (action.simulate()) return amountOfMixtureAdded;
-
-                // lite parse/mix variants skip refreshPossibleReactions /
-                // updateName / updateColor / updateNextBoilingPoints. Those caches don't survive
-                // NBT round-trip and the merged mixture is immediately re-serialized below
-                // (LegacyMixture.writeNBT only emits contents/temperature/equilibrium/results).
-                LegacyMixture existingMixture = LegacyMixture.readNBT(
-                    fluid.getOrDefault(DestroyDataComponents.MIXTURE, new CompoundTag()), false);
-                LegacyMixture addedMixture = LegacyMixture.readNBT(
-                    resource.getOrDefault(DestroyDataComponents.MIXTURE, new CompoundTag()), false);
-
-                ReadOnlyMixture newMixture = LegacyMixture.mix(Map.of(
-                    existingMixture, (double) existingAmount / 1000d,
-                    addedMixture, (double) amountOfMixtureAdded / 1000d), false);
-
-                // Use {@code setFluid(MixtureFluid.of(...))} (instance replacement) rather than
-                // mutating the existing FluidStack in place. Mutating in place to avoid FluidStack
-                // instance churn (so pipe state machines see "stable" fluid identity) breaks
-                // pump→pipe transfer entirely (symptom: a pump connected to a fluid pipe fails to
-                // push fluid into the pipe).
-                // <p>Why setFluid is correct: vanilla Create FluidStacks are ephemeral value-type
-                // wrappers — pipe state machines snapshot fluid identity via {@code drain(1, SIMULATE)}
-                // (which always returns a new instance), so they don't actually rely on instance
-                // stability of the tank's internal {@code fluid} field. By contrast, mutating a
-                // FluidStack's components in-place via {@code fluid.set(...)} can leak through
-                // shared {@code DataComponentPatch} references (drain copies the patch reference,
-                // not a deep clone) — downstream pipe state machines holding old drained stacks
-                // can see their "snapshot" components mutate retroactively, producing
-                // hard-to-diagnose flow-identity mismatches that propagate through pipe segments.
-                // <p>The original "A→B→C stall" is now handled by the broader
-                // FluidTransportBehaviourMixin, which relaxes {@code FluidStack.isSameFluidSameComponents}
-                // for mixture pairs across all three pipe-network call sites. With that in
-                // place, instance-replacement no longer triggers the stall.
-                setFluid(MixtureFluid.of(existingAmount + amountOfMixtureAdded, newMixture));
-                return amountOfMixtureAdded;
+                return tryMergeMixture(this, resource, action);
             }
             return filled;
         }
