@@ -1,9 +1,10 @@
 {
     "destroy.fork.welcome.header": "[Destroy · 非官方 1.21.1 移植版]",
-    "destroy.fork.welcome.body": "这是 Petrolpark/Destroy 的社区移植版。原版面向 Forge 1.20.1；本构建由 NHblock 维护，获原作者授权但属非官方版本。",
+    "destroy.fork.welcome.body": "这是 Petrolpark/Destroy 的社区移植版。原版面向 Forge 1.20.1；本构建最初由 NHblock 创建，先由 Eli Gibbs 维护，获原作者授权但属非官方版本。",
     "destroy.fork.welcome.links": "反馈 bug 或获取帮助：%s  ·  %s",
-    "destroy.fork.welcome.discord": "Petrolpark 官方 Discord",
-    "destroy.fork.welcome.github": "Fork 仓库（GitHub）",
+    "destroy.fork.welcome.discord": "Petrolpark Discord 服务器",
+    "destroy.fork.welcome.eligibbs-discord": "Eli Gibbs Discord 服务器",
+    "destroy.fork.welcome.github": "GitHub",
     "advancement.destroy.root": "坍毁化合",
     "advancement.destroy.acetone": "去死吧，重铬酸！",
     "advancement.destroy.acetone.description": "想出让丙醇氧化为丙酮的方法",
